@@ -1,1 +1,5 @@
-streamlit
+streamlit>=1.28.0
+pandas>=2.0.0
+# Para conectar con GCP más adelante:
+google-cloud-bigquery>=3.11.0
+google-cloud-storage>=2.10.0
