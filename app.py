@@ -24,14 +24,53 @@ st.set_page_config(
     layout="wide"
 )
 
-def formatear_telefono_auto(texto):
-    numeros = re.sub(r'\D', '', texto)[:10]
-    if len(numeros) <= 3:
-        return f"({numeros}"
-    elif len(numeros) <= 6:
-        return f"({numeros[:3]}) - {numeros[3:]}"
-    else:
-        return f"({numeros[:3]}) - {numeros[3:6]} - {numeros[6:]}"
+# ========== FUNCIÓN DE FORMATO FINAL TELEFONO==========
+def formato_final_telefono(texto):
+    """
+    Aplica formato final (XXX) XXX-XXXX a un número de 10 dígitos.
+    
+    Args:
+        texto (str): Cadena que puede contener números y otros caracteres
+        
+    Returns:
+        str: Número formateado o cadena vacía si no tiene 10 dígitos
+    """
+    # Extraer solo números
+    numeros = re.sub(r'\D', '', texto)
+    
+    # Solo formatear si tiene exactamente 10 dígitos
+    if len(numeros) == 10:
+        return f"({numeros[:3]}) {numeros[3:6]}-{numeros[6:]}"
+    
+    # Si no tiene 10 dígitos, devolver vacío o el texto original
+    return texto
+
+# ========== FUNCIÓN CALLBACK ==========
+def aplicar_formato_telefono():
+    """
+    Callback que se ejecuta cuando el usuario termina de editar el campo.
+    Formatea el teléfono y lo guarda en session_state.
+    """
+    # Obtener el valor "raw" del input
+    telefono_sin_formato = st.session_state.telefono_input
+    
+    # Aplicar formato final
+    telefono_formateado = formato_final_telefono(telefono_sin_formato)
+    
+    # Guardar en session_state para mostrar en el campo
+    st.session_state.telefono_input = telefono_formateado
+    
+    # Guardar en otra variable para usar en tu lógica de negocio
+    st.session_state.telefono_formateado = telefono_formateado
+
+
+# ========== INICIALIZACIÓN DE SESSION STATE ==========
+# Esto evita errores en la primera ejecución
+if 'telefono_input' not in st.session_state:
+    st.session_state.telefono_input = ""
+
+if 'telefono_formateado' not in st.session_state:
+    st.session_state.telefono_formateado = ""
 
 # Crear tabla en BigQuery si no existe (solo una vez)
 if 'tabla_verificada' not in st.session_state:
@@ -66,8 +105,13 @@ with tab1:
             nombre = st.text_input("Nombre Completo *", placeholder="Ej: Juan Pérez")
             cedula = st.text_input("Cédula *", placeholder="Ej: 40227305527")
 
-            telefono_raw = st.text_input("Teléfono *", placeholder="Ej: 8092851725")
-            telefono = formatear_telefono_auto(telefono_raw)
+            telefono = st.text_input(
+            "Teléfono *",
+            placeholder="Ej: 8092851725",
+            key="telefono_input",  # Vincula con session_state
+            on_change=aplicar_formato_telefono,  # Callback al cambiar
+            max_chars=14  # Límite: (XXX) XXX-XXXX = 14 caracteres
+        )
 
         with col2:
             email = st.text_input("Correo Electrónico", placeholder="Ej: juan@email.com")
@@ -112,10 +156,19 @@ with tab1:
 
         submitted = st.form_submit_button("📤 Enviar Solicitud")
 
+        # ========== VALIDACIÓN Y USO ==========
+
         if submitted:
+            telefono = st.session_state.telefono_formateado
+            
+            # Validar que tenga 10 dígitos
+            numeros_solo = re.sub(r'\D', '', telefono)
+        
             errores = []
             if not nombre or len(nombre) < 3:
                 errores.append("❌ El nombre debe tener al menos 3 caracteres")
+            if not len(numeros_solo) == 10:
+                errores.append("❌ El teléfono debe tener 10 dígitos")
             if not ocupacion:
                 errores.append("❌ La ocupación es obligatoria")
             if not proposito or len(proposito) < 10:
