@@ -24,7 +24,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ========== FUNCIÓN DE FORMATO FINAL TELEFONO==========
+# ========== FUNCIÓN DE FORMATO FINAL ==========
 def formato_final_telefono(texto):
     """
     Aplica formato final (XXX) XXX-XXXX a un número de 10 dígitos.
@@ -45,10 +45,31 @@ def formato_final_telefono(texto):
     # Si no tiene 10 dígitos, devolver vacío o el texto original
     return texto
 
+def formato_final_cedula(texto):
+    """
+    Aplica formato final XXX-XXXXXXX-X a un número de 11 dígitos.
+    
+    Args:
+        texto (str): Cadena que puede contener números y otros caracteres
+        
+    Returns:
+        str: Número formateado o cadena vacía si no tiene 10 dígitos
+    """
+    # Extraer solo números
+    numeros = re.sub(r'\D', '', texto)
+    
+    # Solo formatear si tiene exactamente 11 dígitos
+    if len(numeros) == 11:
+        return f"({numeros[:3]}) {numeros[3:10]}-{numeros[10:]}"
+    
+    # Si no tiene 11 dígitos, devolver vacío o el texto original
+    return texto
+
 # ========== INICIALIZACIÓN DE SESSION STATE ==========
 # Esto evita errores en la primera ejecución
 if 'form_submitted' not in st.session_state:
-    st.session_state.telefono_input = False
+    st.session_state.form_input = False
+
 
 # Crear tabla en BigQuery si no existe (solo una vez)
 if 'tabla_verificada' not in st.session_state:
@@ -81,12 +102,12 @@ with tab1:
         col1, col2 = st.columns(2)
         with col1:
             nombre = st.text_input("Nombre Completo *", placeholder="Ej: Juan Pérez")
-            cedula = st.text_input("Cédula *", placeholder="Ej: 40227305527")
+            cedula_raw = st.text_input("Cédula *", placeholder="Ej: 40227305527", max_chars=11)
 
             telefono_raw = st.text_input(
             "Teléfono *",
             placeholder="Ej: 8092851725",
-            max_chars=14  # Límite: (XXX) XXX-XXXX = 14 caracteres
+            max_chars=10  # Límite: (XXX) XXX-XXXX = 10 caracteres
         )
 
         with col2:
@@ -138,18 +159,25 @@ with tab1:
             telefono_formateado = formato_final_telefono(telefono_raw)
             
             # Validar que tenga 10 dígitos
-            numeros_solo = re.sub(r'\D', '', telefono_formateado)
+            numeros_solo_telefono = re.sub(r'\D', '', telefono_formateado)
+        
+            cedula_formateada = formato_final_cedula(cedula_raw)
+            
+            # Validar que tenga 10 dígitos
+            numeros_solo_cedula = re.sub(r'\D', '', cedula_formateada)
         
             errores = []
             if not nombre or len(nombre) < 3:
                 errores.append("❌ El nombre debe tener al menos 3 caracteres")
-            if len(numeros_solo) != 10:
+            if len(numeros_solo_telefono) != 10:
                 errores.append("❌ El teléfono debe tener 10 dígitos")
             if not ocupacion:
                 errores.append("❌ La ocupación es obligatoria")
             if not proposito or len(proposito) < 10:
                 errores.append("❌ El propósito debe tener al menos 10 caracteres")
-
+            if len(numeros_solo_cedula) != 11:
+                errores.append("❌ El teléfono debe tener 11 dígitos")
+            
             if errores:
                 st.error("🚫 Por favor corrige los siguientes errores:")
                 for error in errores:
@@ -160,7 +188,7 @@ with tab1:
                         'id': str(uuid.uuid4()),
                         'fecha_solicitud': datetime.now().isoformat(),
                         'nombre': nombre,
-                        'cedula': cedula,
+                        'cedula': cedula_formateada,
                         'telefono': telefono_formateado,
                         'email': email if email else None,
                         'fecha_nacimiento': str(fecha_nacimiento),
